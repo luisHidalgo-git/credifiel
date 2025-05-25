@@ -138,10 +138,12 @@ def fetch_data_from_api():
 
 def get_emision_elegida(id_banco, points, monto_exigible, monto_cobrado):
     """Determine which emission to use based on bank ID and conditions"""
-    if points < 0 or (monto_exigible != monto_cobrado and id_banco != 12):
-        return 'bbva_interbancario', BBVA_INTERBANCARIO
-    elif id_banco == 12:
+    if id_banco == 12:
         return 'bbva_cobrar_mismo', BBVA_COBRAR_MISMO
+    
+    elif points < 0 or (monto_exigible != monto_cobrado and id_banco != 12):
+        return 'bbva_interbancario', BBVA_INTERBANCARIO
+    
     elif id_banco == 14:
         return 'santander_cobrar_mismo', SANTANDER_COBRAR_MISMO
     elif id_banco == 2:
