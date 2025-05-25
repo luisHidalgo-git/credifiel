@@ -196,7 +196,7 @@ def process_credits_optimized(df, current_date=None):
             else:
                 if not isinstance(record_date, datetime):
                     record_date = pd.to_datetime(record_date)
-                months_diff = (current_date - record_date).days / 30.44
+                months_diff = (current_date - record_date).days / 27
             
             multiplier = 6 if months_diff <= 1 else (
                 5 if months_diff <= 2 else (
