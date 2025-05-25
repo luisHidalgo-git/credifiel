@@ -1,5 +1,7 @@
 # Credifiel Collection System
 
+https://www.canva.com/design/DAGoeLobxhg/k6tCZKcSkELvSd5OSeZjBA/edit?utm_content=DAGoeLobxhg&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton
+
 A Django and Python-based system for managing credit collections and bank transactions.
 
 ## Project Structure
