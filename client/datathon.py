@@ -19,6 +19,18 @@ BANK_MAPPING = {
     2: 'banamex'
 }
 
+# Morning collection methods
+MORNING_EMISORS = ['5923', '00496']  # BBVA and Banamex morning collection IDs
+
+# Collection opening hours (24-hour format)
+COLLECTION_HOURS = {
+    'bbva_cobrar_mismo': {'hour': 9, 'minute': 0},
+    'banamex_interbancario': {'hour': 8, 'minute': 30},
+    'santander_cobrar_mismo': {'hour': 9, 'minute': 30},
+    'banamex_cobrar_mismo': {'hour': 8, 'minute': 30},
+    'bbva_interbancario': {'hour': 9, 'minute': 0}
+}
+
 # Emisor ID mapping
 EMISOR_MAPPING = {
     'banamex_interbancario': '00496',
@@ -136,8 +148,15 @@ def fetch_data_from_api():
         print(f"Error fetching data from API: {e}")
         raise
 
-def get_emision_elegida(id_banco, points, monto_exigible, monto_cobrado):
+def get_emision_elegida(id_banco, points, monto_exigible, monto_cobrado, last_emisor_id=None):
     """Determine which emission to use based on bank ID and conditions"""
+    # If last payment was with a morning collection method, force morning collection
+    if last_emisor_id in MORNING_EMISORS:
+        if id_banco == 12:
+            return 'bbva_cobrar_mismo', BBVA_COBRAR_MISMO
+        elif id_banco == 2:
+            return 'banamex_cobrar_mismo', BANAMEX_COBRAR_MISMO
+    
     if id_banco == 12:
         return 'bbva_cobrar_mismo', BBVA_COBRAR_MISMO
     
@@ -163,6 +182,12 @@ def process_credits_optimized(df, current_date=None):
         points = 0
         monto = float(credit_group['montoExigible'].sum())
         id_banco = credit_group.iloc[0]['idBanco']
+        last_emisor_id = None
+        
+        # Get the last successful payment's emisor ID
+        last_payment = credit_group[credit_group['montoCobrado'] > 0].iloc[-1] if len(credit_group[credit_group['montoCobrado'] > 0]) > 0 else None
+        if last_payment is not None and not pd.isna(last_payment['idRespuestaBanco']):
+            last_emisor_id = last_payment['idRespuestaBanco']
         
         for idx, row in credit_group.iterrows():
             record_date = row['fechaCobroBanco']
@@ -216,12 +241,19 @@ def process_credits_optimized(df, current_date=None):
         monto_tot = float(last_row['montoExigible'])
         monto_cobrado = float(last_row['montoCobrado'])
         
-        emision_name, emision_fee = get_emision_elegida(id_banco, points, monto_tot, monto_cobrado)
+        emision_name, emision_fee = get_emision_elegida(id_banco, points, monto_tot, monto_cobrado, last_emisor_id)
         
         cobrar = monto_tot > emision_fee
         parcial = points <= 0
         
         if cobrar and monto > 0 and selected_date != 'no pago':
+            # Adjust the collection time based on the emission method
+            collection_time = COLLECTION_HOURS[emision_name]
+            selected_date = selected_date.replace(
+                hour=collection_time['hour'],
+                minute=collection_time['minute']
+            )
+            
             output_data.append({
                 'idCredito': id_credito,
                 'idEmisor': EMISOR_MAPPING[emision_name],
