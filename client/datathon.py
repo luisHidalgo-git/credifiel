@@ -39,15 +39,19 @@ def fetch_data_from_api():
         all_records = []
         for year, year_data in data.items():
             for month_data in year_data:
+                # Skip records with None month
+                if month_data['month'] is None:
+                    continue
+                    
                 record = {
                     'idListaCobro': int(year),
                     'idCredito': month_data['month'],
                     'consecutivoCobro': f"{year}-{month_data['month']}",
                     'idBanco': 12,  # Default to BBVA
-                    'montoExigible': month_data['total_por_cobrar'],
-                    'montoCobrar': month_data['total_por_cobrar'],
-                    'montoCobrado': month_data['total_cobrado'],
-                    'fechaCobroBanco': f"{year}-{month_data['month']}-01",
+                    'montoExigible': float(month_data['total_por_cobrar']),
+                    'montoCobrar': float(month_data['total_por_cobrar']),
+                    'montoCobrado': float(month_data['total_cobrado']),
+                    'fechaCobroBanco': f"{year}-{month_data['month']:02d}-01",
                     'idRespuestaBanco': None
                 }
                 all_records.append(record)
@@ -83,7 +87,7 @@ def process_credits_optimized(df, current_date=None):
 
     for id_credito, credit_group in df.groupby('idCredito'):
         points = 0
-        monto = credit_group['montoExigible'].sum()
+        monto = float(credit_group['montoExigible'].sum())
         id_banco = credit_group.iloc[0]['idBanco']
         
         for idx, row in credit_group.iterrows():
@@ -135,8 +139,8 @@ def process_credits_optimized(df, current_date=None):
         points_map[id_credito] = points
         
         last_row = credit_group.iloc[-1]
-        monto_tot = last_row['montoExigible']
-        monto_cobrado = last_row['montoCobrado']
+        monto_tot = float(last_row['montoExigible'])
+        monto_cobrado = float(last_row['montoCobrado'])
         
         emision_name, emision_fee = get_emision_elegida(id_banco, points, monto_tot, monto_cobrado)
         
