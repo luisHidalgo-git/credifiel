@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import requests
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Constants for bank fees
 BBVA_COBRAR_MISMO = 1.6
@@ -25,6 +27,76 @@ EMISOR_MAPPING = {
     'banamex_cobrar_mismo': '00496',  # Same as banamex_interbancario
     'bbva_interbancario': '4750'
 }
+
+def create_visualizations(df, output_df, points_map):
+    """Create and save visualizations"""
+    # Set the style for all plots
+    plt.style.use('ggplot')  # Using ggplot style instead of seaborn
+    
+    # 1. Monthly Collection Trends
+    plt.figure(figsize=(12, 6))
+    monthly_data = df.groupby(df['fechaCobroBanco'].dt.to_period('M')).agg({
+        'montoCobrado': 'sum',
+        'montoCobrar': 'sum'
+    }).reset_index()
+    monthly_data['fechaCobroBanco'] = monthly_data['fechaCobroBanco'].astype(str)
+    
+    plt.plot(monthly_data['fechaCobroBanco'], monthly_data['montoCobrado'], marker='o', label='Collected')
+    plt.plot(monthly_data['fechaCobroBanco'], monthly_data['montoCobrar'], marker='o', label='Expected')
+    plt.title('Monthly Collection Trends')
+    plt.xlabel('Month')
+    plt.ylabel('Amount')
+    plt.xticks(rotation=45)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig('monthly_trends.png')
+    plt.close()
+
+    # 2. Collection Efficiency by Bank
+    plt.figure(figsize=(10, 6))
+    bank_efficiency = df.groupby('idBanco').agg({
+        'montoCobrado': 'sum',
+        'montoCobrar': 'sum'
+    })
+    bank_efficiency['efficiency'] = (bank_efficiency['montoCobrado'] / bank_efficiency['montoCobrar']) * 100
+    bank_efficiency.index = bank_efficiency.index.map(lambda x: BANK_MAPPING.get(x, str(x)))
+    
+    sns.barplot(x=bank_efficiency.index, y=bank_efficiency['efficiency'])
+    plt.title('Collection Efficiency by Bank')
+    plt.xlabel('Bank')
+    plt.ylabel('Efficiency (%)')
+    plt.tight_layout()
+    plt.savefig('bank_efficiency.png')
+    plt.close()
+
+    # 3. Points Distribution
+    plt.figure(figsize=(10, 6))
+    points_series = pd.Series(points_map)
+    sns.histplot(points_series, bins=20)
+    plt.title('Distribution of Credit Points')
+    plt.xlabel('Points')
+    plt.ylabel('Frequency')
+    plt.tight_layout()
+    plt.savefig('points_distribution.png')
+    plt.close()
+
+    # 4. Monthly Collection Success Rate
+    plt.figure(figsize=(12, 6))
+    monthly_success = df.groupby(df['fechaCobroBanco'].dt.to_period('M')).agg({
+        'idCredito': 'count',
+        'montoCobrado': lambda x: (x > 0).sum()
+    })
+    monthly_success['success_rate'] = (monthly_success['montoCobrado'] / monthly_success['idCredito']) * 100
+    monthly_success.index = monthly_success.index.astype(str)
+    
+    plt.plot(monthly_success.index, monthly_success['success_rate'], marker='o')
+    plt.title('Monthly Collection Success Rate')
+    plt.xlabel('Month')
+    plt.ylabel('Success Rate (%)')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig('success_rate.png')
+    plt.close()
 
 def fetch_data_from_api():
     """Fetch data from Django API and convert to DataFrame"""
@@ -170,8 +242,13 @@ def main():
     output_df, points_map = process_credits_optimized(df)
     print(f"Credits processed. Output records: {len(output_df)}")
     
+    print("Generating visualizations...")
+    create_visualizations(df, output_df, points_map)
+    print("Visualizations saved as PNG files")
+    
     output_filename = 'processed_credits.xlsx'
     output_df.to_excel(output_filename, index=False)
+    print(f"Results saved to {output_filename}")
     
     return output_df, points_map
 
